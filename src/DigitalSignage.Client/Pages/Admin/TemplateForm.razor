@@ -1,0 +1,195 @@
+@page "/admin/templates/new"
+@page "/admin/templates/edit/{Id:int}"
+@inject TemplateService TemplateService
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(Id.HasValue ? "テンプレート編集" : "新規テンプレート作成")</PageTitle>
+
+<h1>@(Id.HasValue ? "テンプレート編集" : "新規テンプレート作成")</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="@model" OnValidSubmit="HandleSubmit" class="card">
+            <div class="card-body">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                <div class="mb-3">
+                    <label class="form-label">テンプレート名 <span class="text-danger">*</span></label>
+                    <InputText class="form-control" @bind-Value="model.Name" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">説明</label>
+                    <InputTextArea class="form-control" @bind-Value="model.Description" rows="2" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">CSSクラス名</label>
+                    <InputText class="form-control" @bind-Value="model.CssClass" />
+                    <div class="form-text">カスタムCSSクラス名を指定できます。</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">背景色</label>
+                        <div class="input-group">
+                            <input type="color" class="form-control form-control-color" @bind="model.BackgroundColor" />
+                            <InputText class="form-control" @bind-Value="model.BackgroundColor" placeholder="#ffffff" />
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">文字色</label>
+                        <div class="input-group">
+                            <input type="color" class="form-control form-control-color" @bind="model.TextColor" />
+                            <InputText class="form-control" @bind-Value="model.TextColor" placeholder="#000000" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">フォントファミリー</label>
+                    <InputText class="form-control" @bind-Value="model.FontFamily" placeholder="Arial, sans-serif" />
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" />
+                        <label class="form-check-label">有効</label>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        @(Id.HasValue ? "更新" : "作成")
+                    </button>
+                    <a href="/admin/templates" class="btn btn-secondary">キャンセル</a>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">プレビュー</div>
+            <div class="card-body">
+                <div class="template-preview" style="@GetPreviewStyle()">
+                    <h4>サンプルタイトル</h4>
+                    <p>これはプレビューテキストです。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .template-preview {
+        padding: 2rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        min-height: 150px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transition: all 0.3s ease;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private TemplateFormModel model = new();
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            var template = await TemplateService.GetTemplateByIdAsync(Id.Value);
+            if (template != null)
+            {
+                model = new TemplateFormModel
+                {
+                    Name = template.Name,
+                    Description = template.Description,
+                    CssClass = template.CssClass,
+                    BackgroundColor = template.BackgroundColor,
+                    TextColor = template.TextColor,
+                    FontFamily = template.FontFamily,
+                    IsActive = template.IsActive
+                };
+            }
+        }
+    }
+
+    private string GetPreviewStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(model.BackgroundColor))
+            styles.Add($"background-color: {model.BackgroundColor}");
+        else
+            styles.Add("background-color: #f8f9fa");
+        if (!string.IsNullOrEmpty(model.TextColor))
+            styles.Add($"color: {model.TextColor}");
+        if (!string.IsNullOrEmpty(model.FontFamily))
+            styles.Add($"font-family: {model.FontFamily}");
+        return string.Join("; ", styles);
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        try
+        {
+            if (Id.HasValue)
+            {
+                var dto = new UpdateTemplateDto
+                {
+                    Name = model.Name,
+                    Description = model.Description,
+                    CssClass = model.CssClass,
+                    BackgroundColor = model.BackgroundColor,
+                    TextColor = model.TextColor,
+                    FontFamily = model.FontFamily,
+                    IsActive = model.IsActive
+                };
+                await TemplateService.UpdateTemplateAsync(Id.Value, dto);
+            }
+            else
+            {
+                var dto = new CreateTemplateDto
+                {
+                    Name = model.Name,
+                    Description = model.Description,
+                    CssClass = model.CssClass,
+                    BackgroundColor = model.BackgroundColor,
+                    TextColor = model.TextColor,
+                    FontFamily = model.FontFamily,
+                    IsActive = model.IsActive
+                };
+                await TemplateService.CreateTemplateAsync(dto);
+            }
+            NavigationManager.NavigateTo("/admin/templates");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class TemplateFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string CssClass { get; set; } = string.Empty;
+        public string? BackgroundColor { get; set; } = "#ffffff";
+        public string? TextColor { get; set; } = "#000000";
+        public string? FontFamily { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

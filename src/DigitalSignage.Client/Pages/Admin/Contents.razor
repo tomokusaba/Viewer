@@ -1,0 +1,134 @@
+@page "/admin/contents"
+@inject ContentService ContentService
+@inject NavigationManager NavigationManager
+
+<PageTitle>コンテンツ管理</PageTitle>
+
+<h1>コンテンツ管理</h1>
+
+<div class="mb-3">
+    <a href="/admin/contents/new" class="btn btn-success">新規コンテンツ作成</a>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (contents.Count == 0)
+{
+    <div class="alert alert-info">
+        コンテンツがありません。新規コンテンツを作成してください。
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>タイトル</th>
+                    <th>種類</th>
+                    <th>テンプレート</th>
+                    <th>タグ</th>
+                    <th>優先度</th>
+                    <th>状態</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var content in contents)
+                {
+                    <tr>
+                        <td>@content.Id</td>
+                        <td>@content.Title</td>
+                        <td>
+                            <span class="badge @GetContentTypeBadgeClass(content.Type)">
+                                @GetContentTypeLabel(content.Type)
+                            </span>
+                        </td>
+                        <td>@(content.Template?.Name ?? "-")</td>
+                        <td>
+                            @foreach (var tag in content.Tags)
+                            {
+                                <span class="badge bg-secondary me-1">@tag.Name</span>
+                            }
+                        </td>
+                        <td>@content.Priority</td>
+                        <td>
+                            @if (content.IsActive)
+                            {
+                                <span class="badge bg-success">有効</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">無効</span>
+                            }
+                        </td>
+                        <td>
+                            <a href="/admin/contents/edit/@content.Id" class="btn btn-sm btn-primary">編集</a>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteContent(content.Id)">削除</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<ContentDto> contents = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContents();
+    }
+
+    private async Task LoadContents()
+    {
+        isLoading = true;
+        try
+        {
+            contents = await ContentService.GetAllContentsAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeleteContent(int id)
+    {
+        if (await ContentService.DeleteContentAsync(id))
+        {
+            await LoadContents();
+        }
+    }
+
+    private string GetContentTypeLabel(ContentType type)
+    {
+        return type switch
+        {
+            ContentType.Image => "画像",
+            ContentType.Video => "動画",
+            ContentType.Markdown => "マークダウン",
+            _ => "不明"
+        };
+    }
+
+    private string GetContentTypeBadgeClass(ContentType type)
+    {
+        return type switch
+        {
+            ContentType.Image => "bg-info",
+            ContentType.Video => "bg-warning",
+            ContentType.Markdown => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}

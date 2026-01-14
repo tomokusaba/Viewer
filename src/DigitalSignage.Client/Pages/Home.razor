@@ -1,0 +1,273 @@
+﻿@page "/"
+@inject ContentService ContentService
+
+<PageTitle>デジタルサイネージ</PageTitle>
+
+<div class="signage-container">
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>コンテンツを読み込んでいます...</p>
+        </div>
+    }
+    else if (contents.Count == 0)
+    {
+        <div class="no-content">
+            <h2>コンテンツがありません</h2>
+            <p>管理コンソールからコンテンツを登録してください。</p>
+        </div>
+    }
+    else
+    {
+        <div class="content-display @GetTemplateClass(currentContent?.Template)">
+            @if (currentContent != null)
+            {
+                <div class="content-item" style="@GetTemplateStyle(currentContent.Template)">
+                    <h1 class="content-title">@currentContent.Title</h1>
+                    
+                    @if (!string.IsNullOrEmpty(currentContent.Description))
+                    {
+                        <p class="content-description">@currentContent.Description</p>
+                    }
+
+                    @switch (currentContent.Type)
+                    {
+                        case ContentType.Image:
+                            @if (!string.IsNullOrEmpty(currentContent.Url))
+                            {
+                                <div class="content-media">
+                                    <img src="@currentContent.Url" alt="@currentContent.Title" class="img-fluid" />
+                                </div>
+                            }
+                            break;
+
+                        case ContentType.Video:
+                            @if (!string.IsNullOrEmpty(currentContent.Url))
+                            {
+                                <div class="content-media">
+                                    <video src="@currentContent.Url" autoplay muted loop class="video-fluid"></video>
+                                </div>
+                            }
+                            break;
+
+                        case ContentType.Markdown:
+                            @if (!string.IsNullOrEmpty(currentContent.MarkdownContent))
+                            {
+                                <div class="content-markdown">
+                                    <pre>@currentContent.MarkdownContent</pre>
+                                </div>
+                            }
+                            break;
+                    }
+
+                    @if (currentContent.Tags.Count > 0)
+                    {
+                        <div class="content-tags">
+                            @foreach (var tag in currentContent.Tags)
+                            {
+                                <span class="badge bg-secondary me-1">@tag.Name</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="content-navigation">
+            <button class="btn btn-outline-light" @onclick="PreviousContent" disabled="@(contents.Count <= 1)">
+                ← 前へ
+            </button>
+            <span class="content-counter">@(currentIndex + 1) / @contents.Count</span>
+            <button class="btn btn-outline-light" @onclick="NextContent" disabled="@(contents.Count <= 1)">
+                次へ →
+            </button>
+        </div>
+    }
+</div>
+
+<style>
+    .signage-container {
+        min-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+    }
+
+    .loading-container {
+        text-align: center;
+    }
+
+    .no-content {
+        text-align: center;
+        padding: 3rem;
+        background: #f8f9fa;
+        border-radius: 1rem;
+    }
+
+    .content-display {
+        width: 100%;
+        max-width: 1200px;
+        min-height: 60vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 1rem;
+        padding: 2rem;
+        transition: all 0.3s ease;
+    }
+
+    .content-item {
+        text-align: center;
+        width: 100%;
+    }
+
+    .content-title {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .content-description {
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.9;
+    }
+
+    .content-media {
+        margin: 1.5rem 0;
+    }
+
+    .content-media img,
+    .content-media video {
+        max-width: 100%;
+        max-height: 50vh;
+        border-radius: 0.5rem;
+    }
+
+    .content-markdown {
+        text-align: left;
+        padding: 1rem;
+        background: rgba(0,0,0,0.1);
+        border-radius: 0.5rem;
+        overflow-x: auto;
+    }
+
+    .content-tags {
+        margin-top: 1.5rem;
+    }
+
+    .content-navigation {
+        margin-top: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .content-counter {
+        padding: 0.5rem 1rem;
+        background: rgba(0,0,0,0.1);
+        border-radius: 0.5rem;
+    }
+
+    /* Template styles */
+    .template-default {
+        background-color: #ffffff;
+        color: #000000;
+    }
+
+    .template-dark {
+        background-color: #1a1a2e;
+        color: #eaeaea;
+    }
+
+    .template-vibrant {
+        background-color: #667eea;
+        color: #ffffff;
+    }
+</style>
+
+@code {
+    private List<ContentDto> contents = new();
+    private ContentDto? currentContent;
+    private int currentIndex = 0;
+    private bool isLoading = true;
+    private System.Threading.Timer? autoPlayTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContents();
+        StartAutoPlay();
+    }
+
+    private async Task LoadContents()
+    {
+        isLoading = true;
+        try
+        {
+            contents = await ContentService.GetActiveContentsAsync();
+            if (contents.Count > 0)
+            {
+                currentContent = contents[0];
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void StartAutoPlay()
+    {
+        autoPlayTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(() =>
+            {
+                NextContent();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private void NextContent()
+    {
+        if (contents.Count == 0) return;
+        currentIndex = (currentIndex + 1) % contents.Count;
+        currentContent = contents[currentIndex];
+    }
+
+    private void PreviousContent()
+    {
+        if (contents.Count == 0) return;
+        currentIndex = (currentIndex - 1 + contents.Count) % contents.Count;
+        currentContent = contents[currentIndex];
+    }
+
+    private string GetTemplateClass(TemplateDto? template)
+    {
+        return template?.CssClass ?? "template-default";
+    }
+
+    private string GetTemplateStyle(TemplateDto? template)
+    {
+        if (template == null) return string.Empty;
+        
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(template.BackgroundColor))
+            styles.Add($"background-color: {template.BackgroundColor}");
+        if (!string.IsNullOrEmpty(template.TextColor))
+            styles.Add($"color: {template.TextColor}");
+        if (!string.IsNullOrEmpty(template.FontFamily))
+            styles.Add($"font-family: {template.FontFamily}");
+        
+        return string.Join("; ", styles);
+    }
+
+    public void Dispose()
+    {
+        autoPlayTimer?.Dispose();
+    }
+}

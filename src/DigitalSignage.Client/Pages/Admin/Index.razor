@@ -1,0 +1,73 @@
+@page "/admin"
+@inject ContentService ContentService
+@inject TagService TagService
+@inject TemplateService TemplateService
+
+<PageTitle>管理コンソール</PageTitle>
+
+<h1>管理コンソール</h1>
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">コンテンツ</h5>
+                <p class="card-text display-4">@contentCount</p>
+                <p class="card-text text-muted">登録済みコンテンツ数</p>
+                <a href="/admin/contents" class="btn btn-primary">管理する</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">タグ</h5>
+                <p class="card-text display-4">@tagCount</p>
+                <p class="card-text text-muted">登録済みタグ数</p>
+                <a href="/admin/tags" class="btn btn-primary">管理する</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">テンプレート</h5>
+                <p class="card-text display-4">@templateCount</p>
+                <p class="card-text text-muted">利用可能なテンプレート数</p>
+                <a href="/admin/templates" class="btn btn-primary">管理する</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>クイックアクション</h5>
+            </div>
+            <div class="card-body">
+                <a href="/admin/contents/new" class="btn btn-success me-2">新規コンテンツ作成</a>
+                <a href="/admin/tags/new" class="btn btn-info me-2">新規タグ作成</a>
+                <a href="/" class="btn btn-outline-primary">サイネージ表示を確認</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int contentCount = 0;
+    private int tagCount = 0;
+    private int templateCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var contents = await ContentService.GetAllContentsAsync();
+        var tags = await TagService.GetAllTagsAsync();
+        var templates = await TemplateService.GetAllTemplatesAsync();
+
+        contentCount = contents.Count;
+        tagCount = tags.Count;
+        templateCount = templates.Count;
+    }
+}

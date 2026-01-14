@@ -1,0 +1,231 @@
+@page "/admin/contents/new"
+@page "/admin/contents/edit/{Id:int}"
+@inject ContentService ContentService
+@inject TagService TagService
+@inject TemplateService TemplateService
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(Id.HasValue ? "コンテンツ編集" : "新規コンテンツ作成")</PageTitle>
+
+<h1>@(Id.HasValue ? "コンテンツ編集" : "新規コンテンツ作成")</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <EditForm Model="@model" OnValidSubmit="HandleSubmit" class="card">
+            <div class="card-body">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                <div class="mb-3">
+                    <label class="form-label">タイトル <span class="text-danger">*</span></label>
+                    <InputText class="form-control" @bind-Value="model.Title" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">説明</label>
+                    <InputTextArea class="form-control" @bind-Value="model.Description" rows="3" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">コンテンツ種類 <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="model.Type">
+                        <option value="@ContentType.Image">画像</option>
+                        <option value="@ContentType.Video">動画</option>
+                        <option value="@ContentType.Markdown">マークダウン</option>
+                    </InputSelect>
+                </div>
+
+                @if (model.Type == ContentType.Image || model.Type == ContentType.Video)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">URL</label>
+                        <InputText class="form-control" @bind-Value="model.Url" placeholder="https://example.com/image.jpg" />
+                        <div class="form-text">画像または動画のURLを入力してください。</div>
+                    </div>
+                }
+
+                @if (model.Type == ContentType.Markdown)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">マークダウンコンテンツ</label>
+                        <InputTextArea class="form-control font-monospace" @bind-Value="model.MarkdownContent" rows="10" />
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">テンプレート</label>
+                    <InputSelect class="form-select" @bind-Value="model.TemplateId">
+                        <option value="">選択なし</option>
+                        @foreach (var template in templates)
+                        {
+                            <option value="@template.Id">@template.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">タグ</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var tag in tags)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="tag-@tag.Id" 
+                                       checked="@selectedTagIds.Contains(tag.Id)"
+                                       @onchange="(e) => ToggleTag(tag.Id, (bool)e.Value!)" />
+                                <label class="form-check-label" for="tag-@tag.Id">@tag.Name</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">優先度</label>
+                        <InputNumber class="form-control" @bind-Value="model.Priority" />
+                        <div class="form-text">数値が大きいほど優先的に表示されます。</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">状態</label>
+                        <div class="form-check form-switch mt-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" />
+                            <label class="form-check-label">有効</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">公開開始日</label>
+                        <InputDate class="form-control" @bind-Value="model.StartDate" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">公開終了日</label>
+                        <InputDate class="form-control" @bind-Value="model.EndDate" />
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        @(Id.HasValue ? "更新" : "作成")
+                    </button>
+                    <a href="/admin/contents" class="btn btn-secondary">キャンセル</a>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private ContentFormModel model = new();
+    private List<TagDto> tags = new();
+    private List<TemplateDto> templates = new();
+    private HashSet<int> selectedTagIds = new();
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        tags = await TagService.GetAllTagsAsync();
+        templates = await TemplateService.GetActiveTemplatesAsync();
+
+        if (Id.HasValue)
+        {
+            var content = await ContentService.GetContentByIdAsync(Id.Value);
+            if (content != null)
+            {
+                model = new ContentFormModel
+                {
+                    Title = content.Title,
+                    Description = content.Description,
+                    Type = content.Type,
+                    Url = content.Url,
+                    MarkdownContent = content.MarkdownContent,
+                    TemplateId = content.TemplateId,
+                    Priority = content.Priority,
+                    IsActive = content.IsActive,
+                    StartDate = content.StartDate,
+                    EndDate = content.EndDate
+                };
+                selectedTagIds = content.Tags.Select(t => t.Id).ToHashSet();
+            }
+        }
+    }
+
+    private void ToggleTag(int tagId, bool isChecked)
+    {
+        if (isChecked)
+            selectedTagIds.Add(tagId);
+        else
+            selectedTagIds.Remove(tagId);
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        try
+        {
+            if (Id.HasValue)
+            {
+                var dto = new UpdateContentDto
+                {
+                    Title = model.Title,
+                    Description = model.Description,
+                    Type = model.Type,
+                    Url = model.Url,
+                    MarkdownContent = model.MarkdownContent,
+                    TemplateId = model.TemplateId,
+                    Priority = model.Priority,
+                    IsActive = model.IsActive,
+                    StartDate = model.StartDate,
+                    EndDate = model.EndDate,
+                    TagIds = selectedTagIds.ToList()
+                };
+                await ContentService.UpdateContentAsync(Id.Value, dto);
+            }
+            else
+            {
+                var dto = new CreateContentDto
+                {
+                    Title = model.Title,
+                    Description = model.Description,
+                    Type = model.Type,
+                    Url = model.Url,
+                    MarkdownContent = model.MarkdownContent,
+                    TemplateId = model.TemplateId,
+                    Priority = model.Priority,
+                    IsActive = model.IsActive,
+                    StartDate = model.StartDate,
+                    EndDate = model.EndDate,
+                    TagIds = selectedTagIds.ToList()
+                };
+                await ContentService.CreateContentAsync(dto);
+            }
+            NavigationManager.NavigateTo("/admin/contents");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class ContentFormModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public ContentType Type { get; set; } = ContentType.Image;
+        public string? Url { get; set; }
+        public string? MarkdownContent { get; set; }
+        public int? TemplateId { get; set; }
+        public int Priority { get; set; } = 0;
+        public bool IsActive { get; set; } = true;
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+    }
+}

@@ -1,0 +1,6 @@
+@DigitalSignage.Server_HostAddress = http://localhost:5286
+
+GET {{DigitalSignage.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
