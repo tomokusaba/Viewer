@@ -110,7 +110,7 @@ public static class ContentEndpoints
         await db.SaveChangesAsync();
 
         // Add tags
-        if (dto.TagIds.Count != 0)
+        if (dto.TagIds.Any())
         {
             foreach (var tagId in dto.TagIds)
             {
