@@ -1,0 +1,120 @@
+@page "/admin/templates"
+@inject TemplateService TemplateService
+
+<PageTitle>テンプレート管理</PageTitle>
+
+<h1>テンプレート管理</h1>
+
+<div class="mb-3">
+    <a href="/admin/templates/new" class="btn btn-success">新規テンプレート作成</a>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (templates.Count == 0)
+{
+    <div class="alert alert-info">
+        テンプレートがありません。新規テンプレートを作成してください。
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var template in templates)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>@template.Name</span>
+                        @if (template.IsActive)
+                        {
+                            <span class="badge bg-success">有効</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">無効</span>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <div class="template-preview mb-3" style="@GetPreviewStyle(template)">
+                            <p class="mb-0">プレビュー</p>
+                            <small>@template.CssClass</small>
+                        </div>
+                        <p class="card-text">@(template.Description ?? "説明なし")</p>
+                        <ul class="list-unstyled small">
+                            <li><strong>背景色:</strong> @(template.BackgroundColor ?? "-")</li>
+                            <li><strong>文字色:</strong> @(template.TextColor ?? "-")</li>
+                            <li><strong>フォント:</strong> @(template.FontFamily ?? "-")</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/admin/templates/edit/@template.Id" class="btn btn-sm btn-primary">編集</a>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteTemplate(template.Id)">削除</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<style>
+    .template-preview {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+
+@code {
+    private List<TemplateDto> templates = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplates();
+    }
+
+    private async Task LoadTemplates()
+    {
+        isLoading = true;
+        try
+        {
+            templates = await TemplateService.GetAllTemplatesAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeleteTemplate(int id)
+    {
+        if (await TemplateService.DeleteTemplateAsync(id))
+        {
+            await LoadTemplates();
+        }
+    }
+
+    private string GetPreviewStyle(TemplateDto template)
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(template.BackgroundColor))
+            styles.Add($"background-color: {template.BackgroundColor}");
+        if (!string.IsNullOrEmpty(template.TextColor))
+            styles.Add($"color: {template.TextColor}");
+        if (!string.IsNullOrEmpty(template.FontFamily))
+            styles.Add($"font-family: {template.FontFamily}");
+        return string.Join("; ", styles);
+    }
+}

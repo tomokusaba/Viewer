@@ -1,0 +1,102 @@
+@page "/admin/tags/new"
+@page "/admin/tags/edit/{Id:int}"
+@inject TagService TagService
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(Id.HasValue ? "タグ編集" : "新規タグ作成")</PageTitle>
+
+<h1>@(Id.HasValue ? "タグ編集" : "新規タグ作成")</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="@model" OnValidSubmit="HandleSubmit" class="card">
+            <div class="card-body">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                <div class="mb-3">
+                    <label class="form-label">タグ名 <span class="text-danger">*</span></label>
+                    <InputText class="form-control" @bind-Value="model.Name" />
+                    <div class="form-text">タグ名は一意である必要があります。</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">説明</label>
+                    <InputTextArea class="form-control" @bind-Value="model.Description" rows="3" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        @(Id.HasValue ? "更新" : "作成")
+                    </button>
+                    <a href="/admin/tags" class="btn btn-secondary">キャンセル</a>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private TagFormModel model = new();
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            var tag = await TagService.GetTagByIdAsync(Id.Value);
+            if (tag != null)
+            {
+                model = new TagFormModel
+                {
+                    Name = tag.Name,
+                    Description = tag.Description
+                };
+            }
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        try
+        {
+            if (Id.HasValue)
+            {
+                var dto = new UpdateTagDto
+                {
+                    Name = model.Name,
+                    Description = model.Description
+                };
+                await TagService.UpdateTagAsync(Id.Value, dto);
+            }
+            else
+            {
+                var dto = new CreateTagDto
+                {
+                    Name = model.Name,
+                    Description = model.Description
+                };
+                await TagService.CreateTagAsync(dto);
+            }
+            NavigationManager.NavigateTo("/admin/tags");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class TagFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+}
